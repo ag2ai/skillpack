@@ -126,6 +126,25 @@ def main() -> int:
     r3b, _ = sp.resolve(INDEX, {"skills": {"@core/code-review": "^1.2.0"}})
     check(r3b["@core/code-review"]["source"] == "registry", "registry entry tagged source=registry")
 
+    # --- audit: real 2-hop example chain verifies end-to-end ---
+    rc = sp.cmd_audit(sp._load_index(), "@sutando/obsidian-vault", verify=True)
+    check(rc == 0, "audit --verify on the example chain passes (digests chain)")
+
+    # --- audit: a broken parent_digest fails verification ---
+    idx = {"skills": {"@x/y": {"latest": "2.0.0", "versions": {
+        "1.0.0": {"digest": "sha256:AAA", "path": "p/1"},
+        "2.0.0": {"digest": "sha256:BBB", "path": "p/2"}}}}}
+    _orig = sp._read_manifest
+    sp._read_manifest = lambda d: (
+        {"lineage": {"parent": "@x/y@1.0.0",
+                     "evolution": {"parent_digest": "sha256:WRONG", "author": "agent:z"}}}
+        if d.name == "2" else {})
+    try:
+        rc2 = sp.cmd_audit(idx, "@x/y", verify=True)
+    finally:
+        sp._read_manifest = _orig
+    check(rc2 == 1, "broken parent_digest → audit --verify fails (rc 1)")
+
     print(f"\n{'PASS — all checks green' if not FAILS else f'FAIL — {len(FAILS)} failing'}")
     return 0 if not FAILS else 1
 

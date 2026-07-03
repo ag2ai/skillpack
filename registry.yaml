@@ -16,7 +16,7 @@ skills:
           models: [claude-opus-4-8, gpt-5.5-pro]
         path: examples/code-review
   "@sutando/obsidian-vault":
-    latest: 1.0.0
+    latest: 1.1.0
     versions:
       1.0.0:
         digest: "sha256:96af2d2ed87ee5fd98afaabe3920997339bffea8bd46d416691a3d4d84d236ff"
@@ -28,3 +28,23 @@ skills:
           skillpack: ">=0.1"
           models: []
         path: skills/sutando/obsidian-vault/versions/1.0.0
+      1.0.1:
+        digest: "sha256:02e41b394750d68c1e590a54442127a77ea80b0a06b6f8a885924db0fed707e3"
+        stability: stable
+        eval_status: passing
+        safety_review: verified
+        runtime:
+          agent: null
+          skillpack: null
+          models: []
+        path: skills/sutando/obsidian-vault/versions/1.0.1
+      1.1.0:
+        digest: "sha256:123c78b8607b070448d0bb2f6736cda23419ebfe6aa3eaac4a4bbfe60d684f69"
+        stability: experimental
+        eval_status: passing
+        safety_review: pending
+        runtime:
+          agent: null
+          skillpack: null
+          models: []
+        path: skills/sutando/obsidian-vault/versions/1.1.0

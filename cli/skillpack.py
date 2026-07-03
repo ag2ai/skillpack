@@ -14,6 +14,7 @@ Commands:
   skillpack add <@scope/name[@range]>   # add/update a dep in agent.yaml
   skillpack install [--agent PATH]      # resolve → skillpack.lock + copy skills in
   skillpack install --lock-only         # resolve + lock, don't copy files
+  skillpack audit <@scope/name> [--verify]  # walk the lineage chain (newest→origin)
   skillpack lint [args...]              # delegate to tools/lint-skill.py
 
 Resolution: for each declared `@scope/name: <range>`, pick the highest registry
@@ -322,6 +323,76 @@ def cmd_lint(args: list[str]) -> int:
     return subprocess.call([sys.executable, str(linter), *args])
 
 
+def _read_manifest(mdir: Path) -> dict:
+    """Load a version's manifest dict from its dir (skill.json or skill.yaml)."""
+    j = mdir / "skill.json"
+    if j.exists():
+        return json.loads(j.read_text())
+    y = mdir / "skill.yaml"
+    if y.exists():
+        try:
+            import yaml  # type: ignore
+            return yaml.safe_load(y.read_text()) or {}
+        except Exception:  # noqa: BLE001 — origin manifests need no lineage anyway
+            return {}
+    return {}
+
+
+def cmd_audit(index: dict, spec: str, verify: bool) -> int:
+    """Walk a skill's lineage chain newest → origin, printing each hop's
+    evolution entry. --verify checks each recorded parent_digest against the
+    parent version's actual registry digest (tamper-evidence)."""
+    # spec = @scope/name[@version]; version separator is the LAST '@'
+    if spec.count("@") >= 2:
+        i = spec.rfind("@")
+        name, want = spec[:i], spec[i + 1:]
+    else:
+        name, want = spec, ""
+    s = index.get("skills", {}).get(name)
+    if not s:
+        print(f"{name}: not in registry", file=sys.stderr)
+        return 1
+    version = want or s["latest"]
+    print(f"lineage of {name}@{version} (newest → origin):\n")
+    seen, ok = set(), True
+    while version in s["versions"]:
+        if version in seen:
+            print("  ! cycle detected — stopping", file=sys.stderr)
+            return 1
+        seen.add(version)
+        entry = s["versions"][version]
+        m = _read_manifest(REPO / entry["path"])
+        lin = (m.get("lineage") or {})
+        ev = (lin.get("evolution") or {})
+        author = ev.get("author", "—")
+        rat = ev.get("rationale", "")
+        pdelta = ev.get("permissions_delta", "?")
+        evd = ev.get("eval_delta") or {}
+        eval_s = f"{evd.get('before','?')}→{evd.get('after','?')}" if evd else "—"
+        print(f"  ● {name}@{version}  [{author}]")
+        if rat:
+            print(f"      why: {rat}")
+        print(f"      eval: {eval_s}   perms: {pdelta}   digest: {entry['digest'][:19]}…")
+        parent = lin.get("parent")
+        if verify and parent:
+            pv = parent.rsplit("@", 1)[-1]
+            pe = s["versions"].get(pv)
+            want_dig = ev.get("parent_digest")
+            got_dig = pe["digest"] if pe else None
+            mark = "✓" if (want_dig and got_dig and want_dig == got_dig) else "✗"
+            if mark == "✗":
+                ok = False
+            print(f"      ↳ parent {parent}: digest {mark}")
+        if not parent:
+            print(f"      (origin{' — forked from ' + lin['forked_from'] if lin.get('forked_from') else ''})")
+            break
+        version = parent.rsplit("@", 1)[-1]
+    if verify:
+        print(f"\naudit: chain {'VERIFIED' if ok else 'BROKEN — a parent_digest did not match'}.")
+        return 0 if ok else 1
+    return 0
+
+
 def main(argv: list[str]) -> int:
     if not argv:
         print(__doc__.strip().split("\n\n")[0])
@@ -331,7 +402,8 @@ def main(argv: list[str]) -> int:
     if cmd == "lint":
         return cmd_lint(rest)
     lock_only = "--lock-only" in rest
-    rest = [a for a in rest if a != "--lock-only"]
+    verify = "--verify" in rest
+    rest = [a for a in rest if a not in ("--lock-only", "--verify")]
     agent_path = Path("agent.yaml")
     if "--agent" in rest:
         i = rest.index("--agent")
@@ -352,6 +424,11 @@ def main(argv: list[str]) -> int:
         return cmd_info(index, rest[0])
     if cmd == "install":
         return cmd_install(index, agent_path, do_materialize=not lock_only)
+    if cmd == "audit":
+        if not rest:
+            print("usage: skillpack audit <@scope/name[@version]> [--verify]", file=sys.stderr)
+            return 2
+        return cmd_audit(index, rest[0], verify=verify)
     print(f"unknown command '{cmd}'", file=sys.stderr)
     return 2
 

@@ -20,6 +20,7 @@ Phased so each step is usable on its own and the format stays stable while distr
 - `fork` / `publish` / `diff`.
 - **Risk-aware `update`**: reports behavior/permission/eval/migration deltas instead of blind-bumping.
 - **Lineage audit trail** (spec: `docs/lineage-audit-trail.md`) — per-version evolution entries (author/rationale/eval-delta/parent-digest) so agent **self-evolution** is replayable + accountable; `skillpack audit` walks/verifies the chain.
+  - **Done (Phase A):** `skillpack audit </name> [--verify]` walks the chain newest→origin (author/rationale/eval-delta/perms) and verifies each parent_digest. Worked example: `/obsidian-vault` 1.0.0→1.0.1(human)→1.1.0(agent).
 
 ## Phase 3 — Hosted + federated registry
 - `registry.skillpack.dev`-shaped API (search / publish / versions / owners / downloads / compatibility / verification / deprecation / fork-graph / eval results).

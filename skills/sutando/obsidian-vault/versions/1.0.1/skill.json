@@ -1,0 +1,42 @@
+{
+  "schema": "https://skillpack.dev/schemas/skill.v1.json",
+  "name": "@sutando/obsidian-vault",
+  "version": "1.0.1",
+  "display_name": "Obsidian Vault Capture",
+  "description": "Capture notes, tasks, and thoughts into a Sutando-owned Obsidian vault; a voice/inline tool writes Markdown straight to the filesystem.",
+  "license": "MIT",
+  "maintainers": [
+    "github:sonichi/sutando"
+  ],
+  "permissions": {
+    "network": false,
+    "filesystem": "read-write",
+    "secrets": "none"
+  },
+  "quality": {
+    "stability": "stable",
+    "eval_status": "passing",
+    "safety_review": "verified"
+  },
+  "lineage": {
+    "forked_from": null,
+    "parent": "@sutando/obsidian-vault@1.0.0",
+    "upstream_intent": "candidate-contribution",
+    "evolution": {
+      "author": "human:qingyun-wu",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "rationale": "Clarify the capture contract wording; no behavior change.",
+      "eval_delta": {
+        "suite": "evals/",
+        "before": "passing",
+        "after": "passing"
+      },
+      "permissions_delta": "none",
+      "parent_digest": "sha256:96af2d2ed87ee5fd98afaabe3920997339bffea8bd46d416691a3d4d84d236ff"
+    }
+  },
+  "provenance": {
+    "source": "https://github.com/sonichi/sutando",
+    "signed": false
+  }
+}

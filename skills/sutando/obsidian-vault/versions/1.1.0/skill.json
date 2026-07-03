@@ -1,0 +1,43 @@
+{
+  "schema": "https://skillpack.dev/schemas/skill.v1.json",
+  "name": "@sutando/obsidian-vault",
+  "version": "1.1.0",
+  "display_name": "Obsidian Vault Capture",
+  "description": "Capture notes into a Sutando-owned Obsidian vault, now with automatic tag inference from note content.",
+  "license": "MIT",
+  "maintainers": [
+    "github:sonichi/sutando"
+  ],
+  "permissions": {
+    "network": false,
+    "filesystem": "read-write",
+    "secrets": "none"
+  },
+  "quality": {
+    "stability": "experimental",
+    "eval_status": "passing",
+    "safety_review": "pending"
+  },
+  "lineage": {
+    "forked_from": null,
+    "parent": "@sutando/obsidian-vault@1.0.1",
+    "upstream_intent": "candidate-contribution",
+    "evolution": {
+      "author": "agent:sutando-qingyun-001",
+      "policy": "auto-eval-promote-v1",
+      "timestamp": "2026-07-03T02:00:00Z",
+      "rationale": "Autonomously added tag inference; eval pass-rate improved and permissions were unchanged, so promoted per policy.",
+      "eval_delta": {
+        "suite": "evals/",
+        "before": "0.90",
+        "after": "0.95"
+      },
+      "permissions_delta": "none",
+      "parent_digest": "sha256:02e41b394750d68c1e590a54442127a77ea80b0a06b6f8a885924db0fed707e3"
+    }
+  },
+  "provenance": {
+    "source": "https://github.com/sonichi/sutando",
+    "signed": false
+  }
+}
