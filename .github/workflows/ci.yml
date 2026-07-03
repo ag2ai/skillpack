@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Manifests must be schema-valid AND their declared permissions must match
+      # the code (a manifest that says network:false while the code calls out is
+      # a lint failure). --strict promotes warnings (e.g. permission mismatch) to
+      # failures on CI.
+      - name: Lint manifests
+        run: python3 tools/lint-skill.py --all --strict
+
+      # The registry index is generated from manifests; it must never drift from
+      # them. Regenerate and fail if the committed registry.yaml differs.
+      - name: Registry index is up to date
+        run: python3 tools/gen-registry.py --check

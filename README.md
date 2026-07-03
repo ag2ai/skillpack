@@ -44,4 +44,22 @@ my-agent/
   skills/overrides/ # local customizations (user > org > community > core)
 ```
 
+## Registering a skill (Phase 1 — git as source of truth)
+
+The git repo **is** the registry. To publish or update a skill you open a PR — no separate publish service yet, and you get review, history, fork lineage, and governance for free:
+
+1. Add your manifest under `skills/<scope>/<name>/versions/<version>/skill.yaml` (`@core/…` project-maintained, `@community/…` unverified, `@company/…` private org, `@user/…` personal).
+2. CI validates it: `tools/lint-skill.py --all --strict` (schema + the network-permission cross-check) and `tools/gen-registry.py --check` (the generated index must not drift).
+3. On merge, `registry.yaml` is regenerated from the manifests. **Merge = published.** Later, `skillmesh publish` will wrap this same PR flow.
+
+**The index is generated, never hand-written.** `registry.yaml` is a pure function of the manifests (`tools/gen-registry.py`), so it can't lie about what's in the repo — CI fails on any drift.
+
+### Local customization & divergence (the fork/override model)
+
+Diverging from a `@core` skill (e.g. your own edit of a Sutando core skill) is a **first-class fork**, not a problem to reconcile away:
+
+- Your variant declares `lineage.forked_from: "@core/<skill>@<version>"` and `upstream_intent: private-customization` (vs `candidate-contribution` if you mean to send it upstream).
+- Precedence at resolve time is `@user > @company > @community > @core`, and local edits live in `skills/overrides/` — so your version wins **without mutating core**.
+- The registry tracks the fork, so the divergence is auditable and you can later promote it upstream or keep it private. A risk-aware `skillmesh update` reports the behavior/permission/eval delta when core bumps, so "the same agent" never silently changes.
+
 See [ROADMAP.md](ROADMAP.md) for the phased build.

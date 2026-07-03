@@ -2,15 +2,15 @@
 
 Phased so each step is usable on its own and the format stays stable while distribution evolves.
 
-## Phase 0 — Format (this repo, now)
-- `schemas/skill.v1.json` — the manifest contract.
-- `registry.yaml` index format spec.
-- Example skill(s).
-- Seeded by Sutando's Phase-1 work (`sonichi/sutando` #1902): manifest schema + a stdlib `lint-skill` with a **permission cross-check** (declared `network` vs actual code). That lints/validator ports here.
+## Phase 0 — Format (this repo, now) ✅
+- `schemas/skill.v1.json` — the manifest contract. **Done.**
+- Example skill(s). **Done** (`examples/code-review`).
+- `tools/lint-skill.py` — stdlib validator + **permission cross-check** (declared `network` vs actual code), ported from Sutando's Phase-1 work (`sonichi/sutando` #1902). **Done.**
 
-## Phase 1 — Git-based registry
-- `registry.yaml` generated from manifests by CI; skills submitted via PR (review + history + forks + governance for free).
-- `skillmesh lint` / `diff` over the index.
+## Phase 1 — Git-based registry ▶️ (in progress)
+- `registry.yaml` — the index (skills × versions × digest × status × compatibility), **generated from manifests** by `tools/gen-registry.py`; never hand-edited. **Done.**
+- CI (`.github/workflows/ci.yml`): lint `--all --strict` + registry **drift-check** (`gen-registry.py --check` fails if the committed index is stale). **Done.**
+- Skills submitted via **PR** (review + history + forks + governance for free); merge = published. Next: a `skills/<scope>/<name>/versions/<ver>/` layout convention + `skillmesh diff` over the index.
 
 ## Phase 2 — CLI + lockfile
 - `skillmesh add / install / update / diff / fork / publish`.
