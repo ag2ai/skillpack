@@ -1,4 +1,4 @@
-# Skill Mesh — roadmap
+# Skill Space — roadmap
 
 Phased so each step is usable on its own and the format stays stable while distribution evolves.
 
@@ -10,16 +10,16 @@ Phased so each step is usable on its own and the format stays stable while distr
 ## Phase 1 — Git-based registry ▶️ (in progress)
 - `registry.yaml` — the index (skills × versions × digest × status × compatibility), **generated from manifests** by `tools/gen-registry.py`; never hand-edited. **Done.**
 - CI (`.github/workflows/ci.yml`): lint `--all --strict` + registry **drift-check** (`gen-registry.py --check` fails if the committed index is stale). **Done.**
-- Skills submitted via **PR** (review + history + forks + governance for free); merge = published. Next: a `skills/<scope>/<name>/versions/<ver>/` layout convention + `skillmesh diff` over the index.
+- Skills submitted via **PR** (review + history + forks + governance for free); merge = published. Next: a `skills/<scope>/<name>/versions/<ver>/` layout convention + `skillspace diff` over the index.
 
 ## Phase 2 — CLI + lockfile
-- `skillmesh add / install / update / diff / fork / publish`.
-- `agent.yaml` (declared skills + registries + overrides) → `skillmesh.lock` (resolved versions + digests) for reproducible agent behavior.
+- `skillspace add / install / update / diff / fork / publish`.
+- `agent.yaml` (declared skills + registries + overrides) → `skillspace.lock` (resolved versions + digests) for reproducible agent behavior.
 - Precedence: `@user > @company > @community > @core`.
 - **Risk-aware `update`**: reports behavior/permission/eval/migration deltas instead of blind-bumping.
 
 ## Phase 3 — Hosted + federated registry
-- `registry.skillmesh.dev`-shaped API (search / publish / versions / owners / downloads / compatibility / verification / deprecation / fork-graph / eval results).
+- `registry.skillspace.dev`-shaped API (search / publish / versions / owners / downloads / compatibility / verification / deprecation / fork-graph / eval results).
 - Artifact layer over OCI / object store; **Sigstore/Cosign** signing + eval attestations. The CLI hides OCI from users.
 - Federated private registries (`skills.company.com`).
 - Natural home: **AG2 Space** as the discovery/marketplace surface.

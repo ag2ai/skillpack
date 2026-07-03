@@ -1,37 +1,37 @@
-# Skill Mesh
+# Skill Space
 
 **A package registry and dependency manager for AI-agent skills** — publish, version, install, fork, audit, and safely upgrade reusable agent behavior.
 
-npm-like from the user's point of view, but *not* npm-shaped in every detail: skills are **behavioral packages**, so Skill Mesh adds first-class metadata npm doesn't emphasize — runtime/model compatibility, requested permissions, an I/O contract, evaluation status, safety review, fork lineage, and provenance/signatures.
+npm-like from the user's point of view, but *not* npm-shaped in every detail: skills are **behavioral packages**, so Skill Space adds first-class metadata npm doesn't emphasize — runtime/model compatibility, requested permissions, an I/O contract, evaluation status, safety review, fork lineage, and provenance/signatures.
 
 > Status: **early / scaffolding.** This repo holds the open package format + registry spec. The reference resolver and hosted registry come later (see [ROADMAP](ROADMAP.md)).
 
 ## The three parts
 
 1. **Open package format** — a skill is a directory with a `skill.yaml`/`skill.json` manifest ([`schemas/skill.v1.json`](schemas/skill.v1.json)) + `SKILL.md`, `examples/`, `evals/`, `references/`. Content-addressed by sha256; distributable as a `.skill` artifact.
-2. **Registry** — discovery, publishing, versions, trust, analytics. Starts as a **git-based index** (this repo / an org repo), evolves into a hosted API (`registry.skillmesh.dev`-shaped), then federated private registries (`skills.company.com`).
-3. **CLI / runtime resolver** — `skillmesh add / install / update / diff / fork / publish / audit / eval` — installs *compatible* skills into an agent project and writes a `skillmesh.lock` for reproducible behavior.
+2. **Registry** — discovery, publishing, versions, trust, analytics. Starts as a **git-based index** (this repo / an org repo), evolves into a hosted API (`registry.skillspace.dev`-shaped), then federated private registries (`skills.company.com`).
+3. **CLI / runtime resolver** — `skillspace add / install / update / diff / fork / publish / audit / eval` — installs *compatible* skills into an agent project and writes a `skillspace.lock` for reproducible behavior.
 
 ## Design principles
 
 - **Transport-agnostic format.** The manifest + checksum + lockfile are the contract; *where* a package is resolved from (git repo today, hosted/OCI registry later) is a swappable backend, never a re-format.
 - **Namespaces encode trust.** `@core/…` (project-maintained), `@community/…` (unverified), `@company/…` (private org), `@user/…` (personal). Verification is a *status* on the package, not a reserved namespace.
-- **Managed evolution, not blind updates.** The killer feature is a risk-aware `skillmesh update` that reports behavior/permission/eval/migration deltas — because "the same agent" must not silently behave differently after a skill bump.
+- **Managed evolution, not blind updates.** The killer feature is a risk-aware `skillspace update` that reports behavior/permission/eval/migration deltas — because "the same agent" must not silently behave differently after a skill bump.
 - **Permissions are enforced, not decorative.** A manifest that declares `network: false` while the code makes network calls is a lint failure. (This check already ships in Sutando — see below.)
 
 ## Relationship to Sutando
 
-Skill Mesh generalizes the skill-package model started in [`sonichi/sutando`](https://github.com/sonichi/sutando): Phase 1 there (manifest schema `version/owner/stability/permissions/contract/provenance` + a stdlib `lint-skill` with a network permission cross-check) is the seed. Sutando becomes a **consumer** of Skill Mesh; this repo owns the canonical format + registry.
+Skill Space generalizes the skill-package model started in [`sonichi/sutando`](https://github.com/sonichi/sutando): Phase 1 there (manifest schema `version/owner/stability/permissions/contract/provenance` + a stdlib `lint-skill` with a network permission cross-check) is the seed. Sutando becomes a **consumer** of Skill Space; this repo owns the canonical format + registry.
 
 ## Layout (target)
 
 ```
-skillmesh/
+skillspace/
   registry.yaml                 # the index: skills × versions × checksum × status × compatibility
   schemas/skill.v1.json         # the manifest schema (this repo, now)
   skills/
     core/code-review/versions/1.4.7/{skill.yaml, package.skill}
-  cli/                          # the skillmesh resolver (later)
+  cli/                          # the skillspace resolver (later)
   tools/                        # lint / diff / package (later)
 ```
 
@@ -40,7 +40,7 @@ A consuming agent project:
 ```
 my-agent/
   agent.yaml        # declared skills + registries + overrides
-  skillmesh.lock    # resolved versions + digests (reproducible)
+  skillspace.lock    # resolved versions + digests (reproducible)
   skills/overrides/ # local customizations (user > org > community > core)
 ```
 
@@ -50,7 +50,7 @@ The git repo **is** the registry. To publish or update a skill you open a PR —
 
 1. Add your manifest under `skills/<scope>/<name>/versions/<version>/skill.yaml` (`@core/…` project-maintained, `@community/…` unverified, `@company/…` private org, `@user/…` personal).
 2. CI validates it: `tools/lint-skill.py --all --strict` (schema + the network-permission cross-check) and `tools/gen-registry.py --check` (the generated index must not drift).
-3. On merge, `registry.yaml` is regenerated from the manifests. **Merge = published.** Later, `skillmesh publish` will wrap this same PR flow.
+3. On merge, `registry.yaml` is regenerated from the manifests. **Merge = published.** Later, `skillspace publish` will wrap this same PR flow.
 
 **The index is generated, never hand-written.** `registry.yaml` is a pure function of the manifests (`tools/gen-registry.py`), so it can't lie about what's in the repo — CI fails on any drift.
 
@@ -60,6 +60,6 @@ Diverging from a `@core` skill (e.g. your own edit of a Sutando core skill) is a
 
 - Your variant declares `lineage.forked_from: "@core/<skill>@<version>"` and `upstream_intent: private-customization` (vs `candidate-contribution` if you mean to send it upstream).
 - Precedence at resolve time is `@user > @company > @community > @core`, and local edits live in `skills/overrides/` — so your version wins **without mutating core**.
-- The registry tracks the fork, so the divergence is auditable and you can later promote it upstream or keep it private. A risk-aware `skillmesh update` reports the behavior/permission/eval delta when core bumps, so "the same agent" never silently changes.
+- The registry tracks the fork, so the divergence is auditable and you can later promote it upstream or keep it private. A risk-aware `skillspace update` reports the behavior/permission/eval delta when core bumps, so "the same agent" never silently changes.
 
 See [ROADMAP.md](ROADMAP.md) for the phased build.

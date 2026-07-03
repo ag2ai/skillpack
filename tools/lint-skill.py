@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""lint-skill.py — validate Skill Mesh manifests against schemas/skill.v1.json.
+"""lint-skill.py — validate Skill Space manifests against schemas/skill.v1.json.
 
 Stdlib only (no jsonschema dep → runs in CI with zero install). Ported from
 Sutando's Phase-1 linter and adapted for the canonical v1 format: `@scope/name`
