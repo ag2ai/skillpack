@@ -19,7 +19,7 @@ skills:
     latest: 1.0.0
     versions:
       1.0.0:
-        digest: "sha256:5151a26f23143112d2693f1a170bb98d4c423c979e3ad00c5e1269ace547d03d"
+        digest: "sha256:96af2d2ed87ee5fd98afaabe3920997339bffea8bd46d416691a3d4d84d236ff"
         stability: stable
         eval_status: none
         safety_review: none

@@ -6,7 +6,7 @@ version: "1.0.0"
 display_name: "Obsidian Vault Capture"
 description: "Capture notes, tasks, and thoughts into a Sutando-owned Obsidian vault at <workspace>/obsidian-vault. A voice/inline tool writes Markdown straight to the filesystem — Obsidian picks up changes instantly, no plugin required."
 license: "MIT"
-maintainers: ["qingyun-wu"]
+maintainers: ["sonichi/sutando"]
 
 runtime:
   skillpack: ">=0.1"
