@@ -93,12 +93,36 @@
     "lineage": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Keeps forks trackable and promotion decisions auditable.",
+      "description": "Keeps forks trackable and promotion decisions auditable. `parent` + `evolution` form the self-evolution audit trail — see docs/lineage-audit-trail.md.",
       "properties": {
-        "forked_from": { "type": ["string", "null"], "description": "@scope/name@version this was forked from." },
+        "forked_from": { "type": ["string", "null"], "description": "@scope/name@version this was forked from (origin)." },
+        "parent": { "type": "string", "description": "@scope/name@version this version evolved from (the immediate prior version)." },
         "upstream_intent": { "type": "string", "enum": ["candidate-contribution", "private-customization"] },
         "replaces": { "type": "array", "items": { "type": "string" } },
-        "variants": { "type": "array", "items": { "type": "string" }, "description": "Official variants of this skill, e.g. '@core/code-review-security'." }
+        "variants": { "type": "array", "items": { "type": "string" }, "description": "Official variants of this skill, e.g. '@core/code-review-security'." },
+        "evolution": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "How THIS version came to be — the audit-trail entry. Chained to the parent by `parent_digest`.",
+          "properties": {
+            "author": { "type": "string", "description": "Who/what authored it: 'human:<handle>' or 'agent:<agent-id>' (autonomous)." },
+            "policy": { "type": "string", "description": "The policy an agent acted under (agent authors only), e.g. 'auto-eval-promote-v1'." },
+            "timestamp": { "type": "string", "description": "ISO-8601." },
+            "rationale": { "type": "string", "description": "Why this change was made." },
+            "eval_delta": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "The evidence that justified the change.",
+              "properties": {
+                "suite": { "type": "string" },
+                "before": { "type": "string" },
+                "after": { "type": "string" }
+              }
+            },
+            "permissions_delta": { "type": "string", "enum": ["none", "widened", "narrowed"], "description": "Capability change vs parent. 'widened' is human-gated, never auto-applied." },
+            "parent_digest": { "type": "string", "description": "sha256:… of the parent version — chain integrity." }
+          }
+        }
       }
     },
 
