@@ -12,10 +12,10 @@ Phased so each step is usable on its own and the format stays stable while distr
 - CI (`.github/workflows/ci.yml`): lint `--all --strict` + registry **drift-check** (`gen-registry.py --check` fails if the committed index is stale). **Done.**
 - Skills submitted via **PR** (review + history + forks + governance for free); merge = published. Next: a `skills/<scope>/<name>/versions/<ver>/` layout convention + `skillpack diff` over the index.
 
-## Phase 2 — CLI + lockfile
-- `skillpack add / install / update / diff / fork / publish`.
-- `agent.yaml` (declared skills + registries + overrides) → `skillpack.lock` (resolved versions + digests) for reproducible agent behavior.
-- Precedence: `@user > @company > @community > @core`.
+## Phase 2 — CLI + lockfile ▶️ (in progress)
+- `cli/skillpack.py` — the resolver. **Done (MVP):** `list` / `info` / `add` / `install` / `lint`. `install` reads `agent.yaml` (declared skills + SemVer ranges), resolves each to the highest satisfying registry version, and writes **`skillpack.lock`** (pinned version + digest) for reproducible behavior. Range support: exact / `^` / `~` / `>=/>/<=/<` / `*`. Stdlib-only; resolver tests in CI.
+- **Next:** materialize resolved skills into the project (`install` copy step) + precedence `@user > @company > @community > @core` + overrides.
+- `fork` / `publish` / `diff`.
 - **Risk-aware `update`**: reports behavior/permission/eval/migration deltas instead of blind-bumping.
 
 ## Phase 3 — Hosted + federated registry

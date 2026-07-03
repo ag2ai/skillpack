@@ -1,0 +1,7 @@
+# A SkillPack agent project: the skills this agent depends on, by SemVer range.
+# `skillpack install` resolves each to a concrete version from the registry and
+# writes skillpack.lock (pinned version + digest) for reproducible behavior.
+skills:
+  "@core/code-review": "^1.4.0"
+  "@sutando/obsidian-vault": "*"
+# registries: ["https://github.com/ag2ai/skillpack"]   # optional; defaults to this repo

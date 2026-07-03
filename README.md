@@ -44,6 +44,19 @@ my-agent/
   skills/overrides/ # local customizations (user > org > community > core)
 ```
 
+## CLI (resolver — Phase 2, MVP)
+
+`cli/skillpack.py` resolves an agent project's declared skills to concrete, pinned versions:
+
+```bash
+python3 cli/skillpack.py list                          # every skill in the registry
+python3 cli/skillpack.py info @sutando/obsidian-vault  # versions, digest, status, compat
+python3 cli/skillpack.py add @core/code-review@^1.4.0  # add a dep to agent.yaml
+python3 cli/skillpack.py install                       # resolve agent.yaml → skillpack.lock
+```
+
+`install` reads `agent.yaml` (`skills:` → SemVer ranges: exact / `^` / `~` / `>=/>/<=/<` / `*`), picks the **highest satisfying** registry version for each, and writes **`skillpack.lock`** — pinned version + content digest — so the same agent resolves identically every time. See [`examples/agent-project/`](examples/agent-project/).
+
 ## Registering a skill (Phase 1 — git as source of truth)
 
 The git repo **is** the registry. To publish or update a skill you open a PR — no separate publish service yet, and you get review, history, fork lineage, and governance for free:

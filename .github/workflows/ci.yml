@@ -25,3 +25,7 @@ jobs:
       # them. Regenerate and fail if the committed registry.yaml differs.
       - name: Registry index is up to date
         run: python3 tools/gen-registry.py --check
+
+      # The resolver CLI: SemVer range matching + agent.yaml → skillpack.lock.
+      - name: Resolver CLI tests
+        run: python3 cli/skillpack.test.py

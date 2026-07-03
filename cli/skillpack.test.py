@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""Tests for cli/skillpack.py — the resolver CLI. Stdlib only."""
+from __future__ import annotations
+
+import importlib.util
+import json
+import tempfile
+from pathlib import Path
+
+_spec = importlib.util.spec_from_file_location(
+    "skillpack", Path(__file__).resolve().parent / "skillpack.py")
+sp = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(sp)
+
+FAILS: list[str] = []
+
+
+def check(cond: bool, msg: str) -> None:
+    print(("  ok  " if cond else "  FAIL ") + msg)
+    if not cond:
+        FAILS.append(msg)
+
+
+# A synthetic index so tests don't depend on the live registry contents.
+INDEX = {
+    "schema_version": 1,
+    "skills": {
+        "@core/code-review": {
+            "latest": "1.4.7",
+            "versions": {
+                "1.2.0": {"digest": "sha256:aa", "stability": "stable", "eval_status": "passing",
+                          "safety_review": "verified", "runtime": {"agent": ">=0.9"}, "path": "p/1.2.0"},
+                "1.4.7": {"digest": "sha256:bb", "stability": "stable", "eval_status": "passing",
+                          "safety_review": "verified", "runtime": {"agent": ">=0.9"}, "path": "p/1.4.7"},
+                "2.0.0": {"digest": "sha256:cc", "stability": "experimental", "eval_status": "none",
+                          "safety_review": "none", "runtime": {"agent": ">=1.0"}, "path": "p/2.0.0"},
+            },
+        },
+    },
+}
+
+
+def main() -> int:
+    # --- satisfies() range matching ---
+    s = sp.satisfies
+    check(s("1.4.7", "*") and s("1.4.7", "") and s("1.4.7", "latest"), "wildcard/empty/latest match")
+    check(s("1.4.7", "1.4.7") and not s("1.4.6", "1.4.7"), "exact match")
+    check(s("1.4.7", "^1.2.0") and not s("2.0.0", "^1.2.0"), "caret stays within major")
+    check(s("1.4.7", "~1.4.0") and not s("1.5.0", "~1.4.0"), "tilde stays within minor")
+    check(s("1.4.7", ">=1.2.0") and not s("1.1.0", ">=1.2.0"), ">= comparator")
+    check(s("1.4.7", "<2.0.0") and not s("2.0.0", "<2.0.0"), "< comparator")
+    check(not s("0.2.0", "^0.1.0") and s("0.1.9", "^0.1.0"), "caret 0.x pins minor")
+
+    # --- resolve() picks the highest satisfying version ---
+    resolved, errors = sp.resolve(INDEX, {"skills": {"@core/code-review": "^1.2.0"}})
+    check(errors == [] and resolved["@core/code-review"]["version"] == "1.4.7",
+          "resolve caret → highest in-range (1.4.7, not 2.0.0)")
+    check(resolved["@core/code-review"]["digest"] == "sha256:bb", "resolved digest pinned")
+
+    # --- resolve() reports unmet ranges + unknown skills ---
+    _, e1 = sp.resolve(INDEX, {"skills": {"@core/code-review": ">=3.0.0"}})
+    check(any("no version satisfies" in x for x in e1), "unmet range flagged")
+    _, e2 = sp.resolve(INDEX, {"skills": {"@core/nope": "*"}})
+    check(any("not found" in x for x in e2), "unknown skill flagged")
+
+    # --- install writes a deterministic lockfile ---
+    tmp = Path(tempfile.mkdtemp(prefix="skillpack-test-"))
+    (tmp / "agent.yaml").write_text('skills:\n  "@core/code-review": "^1.2.0"\n')
+    rc = sp.cmd_install(INDEX, tmp / "agent.yaml")
+    lock = json.loads((tmp / "skillpack.lock").read_text())
+    check(rc == 0 and lock["lockfileVersion"] == 1
+          and lock["skills"]["@core/code-review"]["version"] == "1.4.7",
+          "install writes skillpack.lock with pinned version")
+
+    # --- agent.yaml round-trip via add + reload ---
+    ap = tmp / "agent2.yaml"
+    sp.cmd_add(ap, "@core/code-review@~1.4.0")
+    reloaded = sp._load_agent(ap)
+    check(reloaded["skills"].get("@core/code-review") == "~1.4.0", "add → agent.yaml round-trips")
+
+    # --- agent.json is also accepted ---
+    (tmp / "agent.json").write_text(json.dumps({"skills": {"@core/code-review": "1.2.0"}}))
+    r3, e3 = sp.resolve(INDEX, sp._load_agent(tmp / "agent.json"))
+    check(e3 == [] and r3["@core/code-review"]["version"] == "1.2.0", "agent.json exact resolve")
+
+    print(f"\n{'PASS — all checks green' if not FAILS else f'FAIL — {len(FAILS)} failing'}")
+    return 0 if not FAILS else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
