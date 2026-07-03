@@ -55,7 +55,7 @@ python3 cli/skillpack.py add @core/code-review@^1.4.0  # add a dep to agent.yaml
 python3 cli/skillpack.py install                       # resolve agent.yaml → skillpack.lock
 ```
 
-`install` reads `agent.yaml` (`skills:` → SemVer ranges: exact / `^` / `~` / `>=/>/<=/<` / `*`), picks the **highest satisfying** registry version for each, and writes **`skillpack.lock`** — pinned version + content digest — so the same agent resolves identically every time. See [`examples/agent-project/`](examples/agent-project/).
+`install` reads `agent.yaml` (`skills:` → SemVer ranges: exact / `^` / `~` / `>=/>/<=/<` / `*`), picks the **highest satisfying** registry version for each, writes **`skillpack.lock`** (pinned version + digest), and **copies the resolved skills into `skillpack_modules/<scope>/<name>/`** so the agent can load them (use `--lock-only` to resolve without copying). See [`examples/agent-project/`](examples/agent-project/).
 
 ## Registering a skill (Phase 1 — git as source of truth)
 

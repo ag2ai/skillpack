@@ -63,10 +63,10 @@ def main() -> int:
     _, e2 = sp.resolve(INDEX, {"skills": {"@core/nope": "*"}})
     check(any("not found" in x for x in e2), "unknown skill flagged")
 
-    # --- install writes a deterministic lockfile ---
+    # --- install (lock-only) writes a deterministic lockfile ---
     tmp = Path(tempfile.mkdtemp(prefix="skillpack-test-"))
     (tmp / "agent.yaml").write_text('skills:\n  "@core/code-review": "^1.2.0"\n')
-    rc = sp.cmd_install(INDEX, tmp / "agent.yaml")
+    rc = sp.cmd_install(INDEX, tmp / "agent.yaml", do_materialize=False)
     lock = json.loads((tmp / "skillpack.lock").read_text())
     check(rc == 0 and lock["lockfileVersion"] == 1
           and lock["skills"]["@core/code-review"]["version"] == "1.4.7",
@@ -82,6 +82,22 @@ def main() -> int:
     (tmp / "agent.json").write_text(json.dumps({"skills": {"@core/code-review": "1.2.0"}}))
     r3, e3 = sp.resolve(INDEX, sp._load_agent(tmp / "agent.json"))
     check(e3 == [] and r3["@core/code-review"]["version"] == "1.2.0", "agent.json exact resolve")
+
+    # --- materialize copies each resolved skill's dir into dest/<scope>/<name> ---
+    src_root = Path(tempfile.mkdtemp(prefix="skillpack-src-"))
+    (src_root / "p/1.4.7").mkdir(parents=True)
+    (src_root / "p/1.4.7/skill.yaml").write_text("name: '@core/code-review'\n")
+    (src_root / "p/1.4.7/SKILL.md").write_text("# Code Review\n")
+    dest_root = tmp / "skillpack_modules"
+    copied, warns = sp.materialize({"@core/code-review": {"version": "1.4.7", "path": "p/1.4.7"}},
+                                   dest_root, src_root)
+    landed = (dest_root / "core/code-review/skill.yaml").exists()
+    check(copied == 1 and warns == [] and landed,
+          "materialize copies skill into skillpack_modules/<scope>/<name>")
+    # index-only entry (no source on disk) → warned, not fatal
+    c2, w2 = sp.materialize({"@x/ghost": {"version": "1.0.0", "path": "nope/1.0.0"}},
+                            dest_root, src_root)
+    check(c2 == 0 and any("index-only" in x for x in w2), "missing source → warning, not crash")
 
     print(f"\n{'PASS — all checks green' if not FAILS else f'FAIL — {len(FAILS)} failing'}")
     return 0 if not FAILS else 1

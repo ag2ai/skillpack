@@ -12,7 +12,8 @@ Commands:
   skillpack list                        # every skill in the registry (name, latest, stability)
   skillpack info <@scope/name>          # versions, digest, status, compatibility
   skillpack add <@scope/name[@range]>   # add/update a dep in agent.yaml
-  skillpack install [--agent PATH]      # resolve agent.yaml → skillpack.lock
+  skillpack install [--agent PATH]      # resolve → skillpack.lock + copy skills in
+  skillpack install --lock-only         # resolve + lock, don't copy files
   skillpack lint [args...]              # delegate to tools/lint-skill.py
 
 Resolution: for each declared `@scope/name: <range>`, pick the highest registry
@@ -24,6 +25,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -220,7 +222,26 @@ def _write_agent_yaml(path: Path, agent: dict) -> None:
     path.write_text("\n".join(lines) + "\n")
 
 
-def cmd_install(index: dict, agent_path: Path) -> int:
+def materialize(resolved: dict, dest_root: Path, src_root: Path) -> tuple[int, list[str]]:
+    """Copy each resolved skill's versioned dir into dest_root/<scope>/<name>.
+    Returns (copied_count, warnings). A resolved entry whose source isn't on disk
+    (an index-only registry entry) is warned about, not fatal."""
+    copied, warnings = 0, []
+    for name, r in sorted(resolved.items()):
+        src = src_root / r["path"]
+        if not src.is_dir():
+            warnings.append(f"{name}: source '{r['path']}' not present — skipped (index-only)")
+            continue
+        dest = dest_root / name.lstrip("@")  # @sutando/x → sutando/x
+        if dest.exists():
+            shutil.rmtree(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(src, dest)
+        copied += 1
+    return copied, warnings
+
+
+def cmd_install(index: dict, agent_path: Path, do_materialize: bool = True) -> int:
     agent = _load_agent(agent_path)
     if not agent.get("skills"):
         print(f"no skills declared in {agent_path.name} — nothing to resolve.")
@@ -240,6 +261,12 @@ def cmd_install(index: dict, agent_path: Path) -> int:
     for n in sorted(resolved):
         print(f"  ✓ {n} → {resolved[n]['version']}")
     print(f"\nwrote {lock_path.name} ({len(resolved)} skill(s) pinned).")
+    if do_materialize:
+        dest_root = agent_path.parent / "skillpack_modules"
+        copied, warnings = materialize(resolved, dest_root, REPO)
+        for w in warnings:
+            print(f"  ⚠ {w}", file=sys.stderr)
+        print(f"materialized {copied} skill(s) into {dest_root.name}/.")
     return 0
 
 
@@ -256,6 +283,8 @@ def main(argv: list[str]) -> int:
     cmd, rest = argv[0], argv[1:]
     if cmd == "lint":
         return cmd_lint(rest)
+    lock_only = "--lock-only" in rest
+    rest = [a for a in rest if a != "--lock-only"]
     agent_path = Path("agent.yaml")
     if "--agent" in rest:
         i = rest.index("--agent")
@@ -275,7 +304,7 @@ def main(argv: list[str]) -> int:
             return 2
         return cmd_info(index, rest[0])
     if cmd == "install":
-        return cmd_install(index, agent_path)
+        return cmd_install(index, agent_path, do_materialize=not lock_only)
     print(f"unknown command '{cmd}'", file=sys.stderr)
     return 2
 
