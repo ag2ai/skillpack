@@ -16,7 +16,8 @@ Phased so each step is usable on its own and the format stays stable while distr
 - `cli/skillpack.py` — the resolver. **Done (MVP):** `list` / `info` / `add` / `install` / `lint`. `install` reads `agent.yaml` (declared skills + SemVer ranges), resolves each to the highest satisfying registry version, and writes **`skillpack.lock`** (pinned version + digest) for reproducible behavior. Range support: exact / `^` / `~` / `>=/>/<=/<` / `*`. Stdlib-only; resolver tests in CI.
 - `install` **materializes** resolved skills into `skillpack_modules/<scope>/<name>/` (or `--lock-only`). **Done.**
 - **Precedence + overrides** — a local `skills/overrides/<scope>/<name>/` (or explicit `overrides:` in agent.yaml) beats the registry, so a `@user` edit shadows a `@core` skill without mutating it. Lockfile records `source: registry|override`. **Done.**
-- **Next:** `fork` (scaffold an override from a registry skill) + the risk-aware `update`.
+- **`fork` + `sync` (git-upstream)** — keep a local edit that shadows an upstream git skill, and `sync` shows what upstream changed since your base (no auto-merge). **Done** — the "use it today" path for e.g. proactive-loop.
+- **Next:** registry-`fork` (scaffold from a published skill) + the risk-aware `update`.
 - `fork` / `publish` / `diff`.
 - **Risk-aware `update`**: reports behavior/permission/eval/migration deltas instead of blind-bumping.
 - **Lineage audit trail** (spec: `docs/lineage-audit-trail.md`) — per-version evolution entries (author/rationale/eval-delta/parent-digest) so agent **self-evolution** is replayable + accountable; `skillpack audit` walks/verifies the chain.

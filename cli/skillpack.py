@@ -15,6 +15,9 @@ Commands:
   skillpack install [--agent PATH]      # resolve → skillpack.lock + copy skills in
   skillpack install --lock-only         # resolve + lock, don't copy files
   skillpack audit <@scope/name> [--verify]  # walk the lineage chain (newest→origin)
+  skillpack fork <dir> --upstream <repo> --path <p> [--ref R] [--adopt]  # keep a
+                                        #   local edit that shadows an upstream git skill
+  skillpack sync <fork-dir> [--set-base <ref>]  # show what upstream changed since your base
   skillpack lint [args...]              # delegate to tools/lint-skill.py
 
 Resolution: for each declared `@scope/name: <range>`, pick the highest registry
@@ -29,6 +32,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -323,6 +327,103 @@ def cmd_lint(args: list[str]) -> int:
     return subprocess.call([sys.executable, str(linter), *args])
 
 
+# ---- git-upstream fork + sync (keep a local edit, sync with upstream) -------
+#
+# For skills that live in a git repo (not yet published to the registry): fork a
+# skill into a local dir that shadows upstream (your edit wins), recording the
+# upstream repo/path + the base commit you forked from. `sync` shows exactly what
+# upstream changed since your base, so you merge what you want by hand — nothing
+# is auto-applied. This is the "use it today" path for e.g. proactive-loop.
+
+FORK_META = ".skillpack-fork.json"
+
+
+def _git(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=cwd, text=True, capture_output=True)
+
+
+def _remote_sha(repo: str, ref: str) -> str | None:
+    r = _git(["ls-remote", repo, ref])
+    for line in r.stdout.splitlines():
+        return line.split()[0]
+    # maybe `ref` is already a full SHA
+    return ref if re.fullmatch(r"[0-9a-f]{7,40}", ref or "") else None
+
+
+def _clone_lazy(repo: str) -> Path:
+    """Partial clone (blob:none, no checkout): full history/trees, lazy blobs."""
+    tmp = Path(tempfile.mkdtemp(prefix="skillpack-up-"))
+    _git(["clone", "--quiet", "--filter=blob:none", "--no-checkout", repo, str(tmp)])
+    return tmp
+
+
+def cmd_fork(dest: Path, repo: str, path: str, ref: str, adopt: bool) -> int:
+    sha = _remote_sha(repo, ref or "HEAD")
+    if not sha:
+        print(f"could not resolve {repo}@{ref or 'HEAD'}", file=sys.stderr)
+        return 1
+    if dest.exists():
+        if not adopt:
+            print(f"{dest} already exists — pass --adopt to mark your existing edit "
+                  f"as a fork (won't overwrite)", file=sys.stderr)
+            return 1
+        note = "adopted your existing edit"
+    else:
+        tmp = _clone_lazy(repo)
+        co = _git(["checkout", "--quiet", sha], cwd=tmp)
+        src = tmp / path
+        if co.returncode != 0 or not src.is_dir():
+            shutil.rmtree(tmp, ignore_errors=True)
+            print(f"could not fetch {repo}:{path}@{sha[:9]}: {co.stderr.strip()}", file=sys.stderr)
+            return 1
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(src, dest)
+        shutil.rmtree(tmp, ignore_errors=True)
+        note = "fetched from upstream"
+    (dest / FORK_META).write_text(json.dumps({
+        "upstream_repo": repo, "upstream_path": path,
+        "base_ref": ref or "HEAD", "base_sha": sha,
+    }, indent=2) + "\n")
+    print(f"forked → {dest}  ({note}; base {repo}:{path}@{sha[:9]})")
+    print("  your version wins via override precedence; run `skillpack sync` to see upstream changes.")
+    return 0
+
+
+def cmd_sync(dest: Path, set_base: str | None) -> int:
+    metaf = dest / FORK_META
+    if not metaf.exists():
+        print(f"{dest}: not a fork (no {FORK_META}) — run `skillpack fork` first", file=sys.stderr)
+        return 1
+    m = json.loads(metaf.read_text())
+    if set_base:
+        sha = _remote_sha(m["upstream_repo"], set_base) or set_base
+        m["base_sha"] = sha
+        metaf.write_text(json.dumps(m, indent=2) + "\n")
+        print(f"advanced fork base → {sha[:9]}")
+        return 0
+    repo, path, base = m["upstream_repo"], m["upstream_path"], m["base_sha"]
+    tmp = _clone_lazy(repo)
+    head = _git(["rev-parse", "HEAD"], cwd=tmp).stdout.strip()
+    if head == base:
+        shutil.rmtree(tmp, ignore_errors=True)
+        print("up to date — no upstream changes since your fork base.")
+        return 0
+    names = _git(["diff", "--name-only", f"{base}..HEAD", "--", path], cwd=tmp).stdout.strip()
+    diff = _git(["diff", f"{base}..HEAD", "--", path], cwd=tmp).stdout
+    shutil.rmtree(tmp, ignore_errors=True)
+    if not names:
+        print(f"upstream advanced {base[:9]} → {head[:9]}, but nothing changed under {path}.")
+        return 0
+    print(f"upstream {repo}:{path} moved {base[:9]} → {head[:9]}\n")
+    print("changed files:")
+    for n in names.splitlines():
+        print(f"  {n}")
+    print("\n--- upstream diff (merge what you want into your local copy) ---")
+    print(diff if diff.strip() else "(binary/empty diff)")
+    print(f"\nafter merging, advance your base:  skillpack sync {dest} --set-base {head}")
+    return 0
+
+
 def _read_manifest(mdir: Path) -> dict:
     """Load a version's manifest dict from its dir (skill.json or skill.yaml)."""
     j = mdir / "skill.json"
@@ -414,6 +515,34 @@ def main(argv: list[str]) -> int:
             print("usage: skillpack add <@scope/name[@range]>", file=sys.stderr)
             return 2
         return cmd_add(agent_path, rest[0])
+
+    def _opt(flag: str) -> str | None:
+        nonlocal rest
+        if flag in rest:
+            k = rest.index(flag)
+            val = rest[k + 1] if k + 1 < len(rest) else None
+            rest = rest[:k] + rest[k + 2:]
+            return val
+        return None
+
+    if cmd == "fork":
+        repo = _opt("--upstream")
+        path = _opt("--path")
+        ref = _opt("--ref") or "HEAD"
+        adopt = "--adopt" in rest
+        rest = [a for a in rest if a != "--adopt"]
+        if not rest or not repo or not path:
+            print("usage: skillpack fork <dest-dir> --upstream <repo> --path <path-in-repo> "
+                  "[--ref <base>] [--adopt]", file=sys.stderr)
+            return 2
+        return cmd_fork(Path(rest[0]), repo, path, ref, adopt)
+    if cmd == "sync":
+        set_base = _opt("--set-base")
+        if not rest:
+            print("usage: skillpack sync <fork-dir> [--set-base <ref>]", file=sys.stderr)
+            return 2
+        return cmd_sync(Path(rest[0]), set_base)
+
     index = _load_index()
     if cmd == "list":
         return cmd_list(index)

@@ -60,6 +60,16 @@ python3 cli/skillpack.py audit /obsidian-vault --verify  # walk + verify the lin
 
 **Overrides (precedence).** Drop a local edit at `skills/overrides/<scope>/<name>/` (or declare `overrides:` in `agent.yaml`) and it **wins over the registry** for that skill — the `@user > @company > @community > @core` precedence, so your version shadows a `@core` skill without mutating it. `install` marks it `(override)` and records `source: override` in the lockfile.
 
+**Keep a local edit + sync with upstream (git-upstream fork).** For a skill that lives in a git repo (not yet in the registry), fork it into a local dir that shadows upstream — your edit wins — while staying synced:
+
+```bash
+skillpack fork skills/overrides/proactive-loop --upstream https://github.com/sonichi/sutando --path skills/proactive-loop --adopt
+skillpack sync skills/overrides/proactive-loop            # show what upstream changed since your base
+skillpack sync skills/overrides/proactive-loop --set-base <sha>   # after you merge
+```
+
+`fork` records the upstream repo/path + the base commit (`.skillpack-fork.json`); `sync` shows the upstream diff since your base so you merge by hand — nothing auto-applied. `--adopt` marks an *existing* local edit as a fork without overwriting it.
+
 ## Registering a skill (Phase 1 — git as source of truth)
 
 The git repo **is** the registry. To publish or update a skill you open a PR — no separate publish service yet, and you get review, history, fork lineage, and governance for free:

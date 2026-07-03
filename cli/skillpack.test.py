@@ -145,6 +145,48 @@ def main() -> int:
         sp._read_manifest = _orig
     check(rc2 == 1, "broken parent_digest → audit --verify fails (rc 1)")
 
+    # --- fork + sync against a hermetic local git upstream ---
+    import subprocess
+    up = Path(tempfile.mkdtemp(prefix="skillpack-up-"))
+
+    def g(*a):
+        subprocess.run(["git", *a], cwd=up, check=True,
+                       capture_output=True, text=True)
+    g("init", "-q")
+    g("config", "user.email", "t@t")
+    g("config", "user.name", "t")
+    (up / "skills/foo").mkdir(parents=True)
+    (up / "skills/foo/SKILL.md").write_text("v1\n")
+    g("add", "-A")
+    g("commit", "-qm", "base")
+    proj = Path(tempfile.mkdtemp(prefix="skillpack-fork-"))
+    dest = proj / "skills/overrides/foo"
+    rc = sp.cmd_fork(dest, str(up), "skills/foo", "HEAD", adopt=False)
+    meta = json.loads((dest / ".skillpack-fork.json").read_text())
+    check(rc == 0 and (dest / "SKILL.md").exists() and meta["upstream_path"] == "skills/foo",
+          "fork fetches upstream skill + records base")
+
+    # advance upstream, then sync should detect it
+    (up / "skills/foo/SKILL.md").write_text("v2\n")
+    (up / "skills/foo/NEW.md").write_text("added\n")
+    g("add", "-A")
+    g("commit", "-qm", "upstream change")
+    import io
+    from contextlib import redirect_stdout
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc2 = sp.cmd_sync(dest, set_base=None)
+    out = buf.getvalue()
+    check(rc2 == 0 and "NEW.md" in out and "v2" in out, "sync shows the upstream diff")
+
+    # set-base to HEAD, then sync is up to date
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=up, capture_output=True, text=True).stdout.strip()
+    sp.cmd_sync(dest, set_base=head)
+    buf2 = io.StringIO()
+    with redirect_stdout(buf2):
+        sp.cmd_sync(dest, set_base=None)
+    check("up to date" in buf2.getvalue(), "after --set-base, sync reports up to date")
+
     print(f"\n{'PASS — all checks green' if not FAILS else f'FAIL — {len(FAILS)} failing'}")
     return 0 if not FAILS else 1
 
