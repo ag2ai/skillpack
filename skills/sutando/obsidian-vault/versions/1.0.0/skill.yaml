@@ -1,0 +1,33 @@
+# @sutando/obsidian-vault — first real skill published to the SkillPack registry.
+# Ported from sonichi/sutando skills/obsidian-vault (manifest v1). Validates against schemas/skill.v1.json.
+schema: "https://skillpack.dev/schemas/skill.v1.json"
+name: "@sutando/obsidian-vault"
+version: "1.0.0"
+display_name: "Obsidian Vault Capture"
+description: "Capture notes, tasks, and thoughts into a Sutando-owned Obsidian vault at <workspace>/obsidian-vault. A voice/inline tool writes Markdown straight to the filesystem — Obsidian picks up changes instantly, no plugin required."
+license: "MIT"
+maintainers: ["qingyun-wu"]
+
+runtime:
+  skillpack: ">=0.1"
+
+entrypoint:
+  instructions: "SKILL.md"
+
+permissions:
+  network: false
+  filesystem: "read-write"
+  secrets: "none"
+
+quality:
+  stability: "stable"
+  eval_status: "none"
+  safety_review: "none"
+
+lineage:
+  forked_from: null
+  upstream_intent: "candidate-contribution"
+
+provenance:
+  source: "https://github.com/sonichi/sutando"
+  signed: false

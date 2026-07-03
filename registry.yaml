@@ -15,3 +15,16 @@ skills:
           skillpack: ">=0.1"
           models: [claude-opus-4-8, gpt-5.5-pro]
         path: examples/code-review
+  "@sutando/obsidian-vault":
+    latest: 1.0.0
+    versions:
+      1.0.0:
+        digest: "sha256:5151a26f23143112d2693f1a170bb98d4c423c979e3ad00c5e1269ace547d03d"
+        stability: stable
+        eval_status: none
+        safety_review: none
+        runtime:
+          agent: null
+          skillpack: ">=0.1"
+          models: []
+        path: skills/sutando/obsidian-vault/versions/1.0.0
