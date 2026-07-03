@@ -1,0 +1,48 @@
+# Example Skill Mesh manifest (validates against schemas/skill.v1.json).
+schema: "https://skillmesh.dev/schemas/skill.v1.json"
+name: "@core/code-review"
+version: "1.4.7"
+display_name: "Code Review"
+description: "Reviews code changes and produces actionable review comments."
+license: "MIT"
+maintainers: ["oss-agent-core"]
+
+runtime:
+  agent: ">=0.9 <2.0"
+  skillmesh: ">=0.1"
+  models: ["claude-opus-4-8", "gpt-5.5-pro"]
+
+entrypoint:
+  instructions: "SKILL.md"
+
+dependencies:
+  "@core/git-context": "^1.2.0"
+optional_dependencies:
+  "@core/github-comments": "^1.0.0"
+
+permissions:
+  network: false
+  filesystem: "read"
+  secrets: "none"
+  tools: ["git.diff.read"]
+
+inputs:
+  - { name: "diff", type: "text", required: true }
+  - { name: "repository_context", type: "text", required: false }
+outputs:
+  - { name: "review_summary", type: "markdown" }
+  - { name: "findings", type: "json" }
+
+quality:
+  stability: "stable"
+  eval_status: "passing"
+  eval_suite: "evals/"
+  safety_review: "verified"
+
+lineage:
+  forked_from: null
+  variants: ["@core/code-review-security", "@core/code-review-python"]
+
+provenance:
+  source: "https://github.com/ag2ai/skillmesh"
+  signed: true

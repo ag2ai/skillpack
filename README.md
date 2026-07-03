@@ -1,0 +1,47 @@
+# Skill Mesh
+
+**A package registry and dependency manager for AI-agent skills** — publish, version, install, fork, audit, and safely upgrade reusable agent behavior.
+
+npm-like from the user's point of view, but *not* npm-shaped in every detail: skills are **behavioral packages**, so Skill Mesh adds first-class metadata npm doesn't emphasize — runtime/model compatibility, requested permissions, an I/O contract, evaluation status, safety review, fork lineage, and provenance/signatures.
+
+> Status: **early / scaffolding.** This repo holds the open package format + registry spec. The reference resolver and hosted registry come later (see [ROADMAP](ROADMAP.md)).
+
+## The three parts
+
+1. **Open package format** — a skill is a directory with a `skill.yaml`/`skill.json` manifest ([`schemas/skill.v1.json`](schemas/skill.v1.json)) + `SKILL.md`, `examples/`, `evals/`, `references/`. Content-addressed by sha256; distributable as a `.skill` artifact.
+2. **Registry** — discovery, publishing, versions, trust, analytics. Starts as a **git-based index** (this repo / an org repo), evolves into a hosted API (`registry.skillmesh.dev`-shaped), then federated private registries (`skills.company.com`).
+3. **CLI / runtime resolver** — `skillmesh add / install / update / diff / fork / publish / audit / eval` — installs *compatible* skills into an agent project and writes a `skillmesh.lock` for reproducible behavior.
+
+## Design principles
+
+- **Transport-agnostic format.** The manifest + checksum + lockfile are the contract; *where* a package is resolved from (git repo today, hosted/OCI registry later) is a swappable backend, never a re-format.
+- **Namespaces encode trust.** `@core/…` (project-maintained), `@community/…` (unverified), `@company/…` (private org), `@user/…` (personal). Verification is a *status* on the package, not a reserved namespace.
+- **Managed evolution, not blind updates.** The killer feature is a risk-aware `skillmesh update` that reports behavior/permission/eval/migration deltas — because "the same agent" must not silently behave differently after a skill bump.
+- **Permissions are enforced, not decorative.** A manifest that declares `network: false` while the code makes network calls is a lint failure. (This check already ships in Sutando — see below.)
+
+## Relationship to Sutando
+
+Skill Mesh generalizes the skill-package model started in [`sonichi/sutando`](https://github.com/sonichi/sutando): Phase 1 there (manifest schema `version/owner/stability/permissions/contract/provenance` + a stdlib `lint-skill` with a network permission cross-check) is the seed. Sutando becomes a **consumer** of Skill Mesh; this repo owns the canonical format + registry.
+
+## Layout (target)
+
+```
+skillmesh/
+  registry.yaml                 # the index: skills × versions × checksum × status × compatibility
+  schemas/skill.v1.json         # the manifest schema (this repo, now)
+  skills/
+    core/code-review/versions/1.4.7/{skill.yaml, package.skill}
+  cli/                          # the skillmesh resolver (later)
+  tools/                        # lint / diff / package (later)
+```
+
+A consuming agent project:
+
+```
+my-agent/
+  agent.yaml        # declared skills + registries + overrides
+  skillmesh.lock    # resolved versions + digests (reproducible)
+  skills/overrides/ # local customizations (user > org > community > core)
+```
+
+See [ROADMAP.md](ROADMAP.md) for the phased build.
