@@ -57,6 +57,8 @@ python3 cli/skillpack.py install                       # resolve agent.yaml → 
 
 `install` reads `agent.yaml` (`skills:` → SemVer ranges: exact / `^` / `~` / `>=/>/<=/<` / `*`), picks the **highest satisfying** registry version for each, writes **`skillpack.lock`** (pinned version + digest), and **copies the resolved skills into `skillpack_modules/<scope>/<name>/`** so the agent can load them (use `--lock-only` to resolve without copying). See [`examples/agent-project/`](examples/agent-project/).
 
+**Overrides (precedence).** Drop a local edit at `skills/overrides/<scope>/<name>/` (or declare `overrides:` in `agent.yaml`) and it **wins over the registry** for that skill — the `@user > @company > @community > @core` precedence, so your version shadows a `@core` skill without mutating it. `install` marks it `(override)` and records `source: override` in the lockfile.
+
 ## Registering a skill (Phase 1 — git as source of truth)
 
 The git repo **is** the registry. To publish or update a skill you open a PR — no separate publish service yet, and you get review, history, fork lineage, and governance for free:

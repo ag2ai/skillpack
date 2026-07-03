@@ -99,6 +99,33 @@ def main() -> int:
                             dest_root, src_root)
     check(c2 == 0 and any("index-only" in x for x in w2), "missing source → warning, not crash")
 
+    # --- overrides: a local override beats the registry for that skill ---
+    proj = Path(tempfile.mkdtemp(prefix="skillpack-proj-"))
+    ovdir = proj / "skills/overrides/core/code-review"
+    ovdir.mkdir(parents=True)
+    (ovdir / "skill.yaml").write_text('name: "@core/code-review"\nversion: "9.9.9-local"\n')
+    (proj / "agent.yaml").write_text('skills:\n  "@core/code-review": "^1.2.0"\n')
+    agent = sp._load_agent(proj / "agent.yaml")
+    ov = sp.find_overrides(agent, proj)
+    check(ov.get("@core/code-review") == ovdir, "conventional overrides/ dir discovered")
+    r, e = sp.resolve(INDEX, agent, ov)
+    check(e == [] and r["@core/code-review"]["source"] == "override"
+          and r["@core/code-review"]["version"] == "9.9.9-local",
+          "override wins over registry (source=override, local version)")
+
+    # explicit agent.yaml `overrides:` also works and wins
+    ex = proj / "explicit"
+    (ex).mkdir()
+    (ex / "skill.yaml").write_text('name: "@core/code-review"\nversion: "2.0.0-mine"\n')
+    agent2 = {"skills": {"@core/code-review": "*"}, "overrides": {"@core/code-review": "explicit"}}
+    ov2 = sp.find_overrides(agent2, proj)
+    r2, _ = sp.resolve(INDEX, agent2, ov2)
+    check(r2["@core/code-review"]["version"] == "2.0.0-mine", "explicit override honored")
+
+    # registry entries carry source=registry
+    r3b, _ = sp.resolve(INDEX, {"skills": {"@core/code-review": "^1.2.0"}})
+    check(r3b["@core/code-review"]["source"] == "registry", "registry entry tagged source=registry")
+
     print(f"\n{'PASS — all checks green' if not FAILS else f'FAIL — {len(FAILS)} failing'}")
     return 0 if not FAILS else 1
 

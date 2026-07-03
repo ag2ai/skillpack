@@ -149,12 +149,55 @@ def satisfies(version: str, rng: str) -> bool:
     return version == rng  # bare exact
 
 
-def resolve(index: dict, agent: dict) -> tuple[dict, list[str]]:
-    """Return (resolved, errors). resolved = {name: {version, digest, path}}."""
+# Scope precedence: a local override / higher-trust scope wins. Lower index = higher precedence.
+SCOPE_ORDER = {"@user": 0, "@company": 1, "@community": 2, "@core": 3}
+
+
+def _scope(name: str) -> str:
+    return name.split("/", 1)[0] if name.startswith("@") else ""
+
+
+def find_overrides(agent: dict, agent_dir: Path) -> dict[str, Path]:
+    """Map @scope/name → local dir, from agent.yaml `overrides:` plus the
+    conventional `skills/overrides/<scope>/<name>/` tree in the project. Explicit
+    `overrides:` entries win over the conventional dir. A local override always
+    beats the registry — that's how a `@user` edit shadows a `@core` skill
+    'without mutating core'."""
+    ov: dict[str, Path] = {}
+    conv = agent_dir / "skills" / "overrides"
+    if conv.is_dir():
+        for scope_dir in conv.iterdir():
+            if scope_dir.is_dir():
+                for skill_dir in scope_dir.iterdir():
+                    if skill_dir.is_dir():
+                        ov[f"@{scope_dir.name}/{skill_dir.name}"] = skill_dir
+    for name, rel in (agent.get("overrides") or {}).items():
+        ov[name] = (agent_dir / str(rel)).resolve()
+    return ov
+
+
+def resolve(index: dict, agent: dict, overrides: dict[str, Path] | None = None) -> tuple[dict, list[str]]:
+    """Return (resolved, errors). resolved = {name: {version, digest, path, source}}.
+    An override (local dir) takes precedence over the registry for that skill."""
     resolved: dict[str, dict] = {}
     errors: list[str] = []
+    overrides = overrides or {}
     skills = index.get("skills", {})
     for name, rng in sorted((agent.get("skills") or {}).items()):
+        if name in overrides:
+            d = overrides[name]
+            if not d.is_dir():
+                errors.append(f"{name}: override path '{d}' is not a directory")
+                continue
+            ver = "local"
+            sy = d / "skill.yaml"
+            if sy.exists():
+                m = re.search(r"^version:\s*[\"']?([^\"'\n]+)", sy.read_text(), re.M)
+                if m:
+                    ver = m.group(1).strip()
+            resolved[name] = {"version": ver, "digest": "override", "path": str(d),
+                              "source": "override"}
+            continue
         entry = skills.get(name)
         if not entry:
             errors.append(f"{name}: not found in registry")
@@ -166,7 +209,8 @@ def resolve(index: dict, agent: dict) -> tuple[dict, list[str]]:
             continue
         best = max(cands, key=lambda s: _vt(s) or (0, 0, 0))
         e = entry["versions"][best]
-        resolved[name] = {"version": best, "digest": e["digest"], "path": e["path"]}
+        resolved[name] = {"version": best, "digest": e["digest"], "path": e["path"],
+                          "source": "registry"}
     return resolved, errors
 
 
@@ -228,7 +272,8 @@ def materialize(resolved: dict, dest_root: Path, src_root: Path) -> tuple[int, l
     (an index-only registry entry) is warned about, not fatal."""
     copied, warnings = 0, []
     for name, r in sorted(resolved.items()):
-        src = src_root / r["path"]
+        # override paths are absolute local dirs; registry paths are relative to src_root
+        src = Path(r["path"]) if r.get("source") == "override" else src_root / r["path"]
         if not src.is_dir():
             warnings.append(f"{name}: source '{r['path']}' not present — skipped (index-only)")
             continue
@@ -246,7 +291,8 @@ def cmd_install(index: dict, agent_path: Path, do_materialize: bool = True) -> i
     if not agent.get("skills"):
         print(f"no skills declared in {agent_path.name} — nothing to resolve.")
         return 0
-    resolved, errors = resolve(index, agent)
+    overrides = find_overrides(agent, agent_path.parent)
+    resolved, errors = resolve(index, agent, overrides)
     for e in errors:
         print(f"  ✗ {e}", file=sys.stderr)
     if errors:
@@ -259,7 +305,8 @@ def cmd_install(index: dict, agent_path: Path, do_materialize: bool = True) -> i
     lock_path = agent_path.parent / "skillpack.lock"
     lock_path.write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n")
     for n in sorted(resolved):
-        print(f"  ✓ {n} → {resolved[n]['version']}")
+        tag = " (override)" if resolved[n].get("source") == "override" else ""
+        print(f"  ✓ {n} → {resolved[n]['version']}{tag}")
     print(f"\nwrote {lock_path.name} ({len(resolved)} skill(s) pinned).")
     if do_materialize:
         dest_root = agent_path.parent / "skillpack_modules"
