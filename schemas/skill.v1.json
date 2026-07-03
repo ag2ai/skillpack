@@ -1,13 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://skillspace.dev/schemas/skill.v1.json",
-  "title": "Skill Space skill manifest (v1)",
+  "$id": "https://skillpack.dev/schemas/skill.v1.json",
+  "title": "SkillPack skill manifest (v1)",
   "description": "The package manifest for an AI-agent skill. Behavioral-package metadata: identity + runtime/model compatibility + declared permissions + I/O contract + eval/safety status + fork lineage + provenance. Serializable as skill.yaml or skill.json; this schema validates the parsed object.",
   "type": "object",
   "additionalProperties": false,
   "required": ["name", "version", "maintainers", "quality"],
   "properties": {
-    "schema": { "type": "string", "description": "URL of this schema, e.g. https://skillspace.dev/schemas/skill.v1.json" },
+    "schema": { "type": "string", "description": "URL of this schema, e.g. https://skillpack.dev/schemas/skill.v1.json" },
     "name": {
       "type": "string",
       "pattern": "^@[a-z0-9][a-z0-9-]*\\/[a-z0-9][a-z0-9-]*$",
@@ -29,7 +29,7 @@
       "description": "Compatibility constraints. A resolver refuses to install a skill whose ranges exclude the target.",
       "properties": {
         "agent": { "type": "string", "description": "SemVer range of the agent runtime, e.g. '>=0.9 <2.0'." },
-        "skillspace": { "type": "string", "description": "SemVer range of the Skill Space format/CLI." },
+        "skillpack": { "type": "string", "description": "SemVer range of the SkillPack format/CLI." },
         "models": { "type": "array", "items": { "type": "string" }, "description": "Model ids the skill is validated against, e.g. 'claude-opus-4-8', 'gpt-5.5-pro'." }
       }
     },
